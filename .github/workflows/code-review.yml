@@ -1,8 +1,10 @@
 name: AI Code Review
 
 on:
-  pull_request:
-    types: [opened, synchronize]
+  workflow_call:
+    secrets:
+      ANTHROPIC_API_KEY:
+        required: true
 
 jobs:
   code-review:
@@ -15,6 +17,12 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
+      - name: Checkout axia-agents
+        uses: actions/checkout@v4
+        with:
+          repository: AXIAai/axia-agents
+          path: .axia-agents
 
       - uses: actions/setup-python@v5
         with:
@@ -38,7 +46,7 @@ jobs:
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
-          python cli.py review ${{ steps.changed.outputs.files }} --output review_output.md
+          python .axia-agents/cli.py review ${{ steps.changed.outputs.files }} --output review_output.md
 
       - name: Post Review as PR Comment
         if: steps.changed.outputs.files != ''
@@ -47,7 +55,7 @@ jobs:
           script: |
             const fs = require('fs');
             const review = fs.readFileSync('review_output.md', 'utf8');
-            const body = `## 🤖 AXIA Code Review Agent\n\n${review}\n\n---\n*Automatisch generiert von [axia-agents](https://github.com/${{ github.repository_owner }}/axia-agents)*`;
+            const body = `## 🤖 AXIA Code Review Agent\n\n${review}\n\n---\n*Automatisch generiert von [axia-agents](https://github.com/AXIAai/axia-agents)*`;
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
