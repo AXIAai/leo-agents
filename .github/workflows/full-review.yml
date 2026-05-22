@@ -1,0 +1,77 @@
+name: AI Full Codebase Review
+
+on:
+  workflow_call:
+    inputs:
+      paths:
+        description: "Zu prüfende Verzeichnisse (z.B. 'backend frontend/src')"
+        required: false
+        default: "."
+        type: string
+    secrets:
+      ANTHROPIC_API_KEY:
+        required: true
+  workflow_dispatch:
+    inputs:
+      paths:
+        description: "Zu prüfende Verzeichnisse (z.B. 'backend frontend/src')"
+        required: false
+        default: "."
+
+jobs:
+  full-review:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Checkout axia-agents
+        uses: actions/checkout@v4
+        with:
+          repository: AXIAai/axia-agents
+          path: .axia-agents
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install anthropic python-dotenv
+
+      - name: Run Full Code Review
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          PATHS="${{ inputs.paths }}"
+          python .axia-agents/cli.py review ${PATHS:-"."} \
+            --focus "Optimierungspotenzial, Codequalität und Sicherheit" \
+            --output full_review.md
+          echo "## Review-Ergebnis (Vorschau)"
+          head -50 full_review.md
+
+      - name: Upload Review as Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: code-review-${{ github.run_id }}
+          path: full_review.md
+          retention-days: 30
+
+      - name: Post as Issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const review = fs.readFileSync('full_review.md', 'utf8');
+            const date = new Date().toLocaleDateString('de-DE');
+            const paths = '${{ inputs.paths }}' || '.';
+            const body = `## 🤖 AXIA Full Code Review — ${date}\n\n**Geprüfte Pfade:** \`${paths}\`\n\n${review}\n\n---\n*Automatisch generiert von [axia-agents](https://github.com/AXIAai/axia-agents)*`;
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `AI Code Review — ${date}`,
+              body: body.slice(0, 65535),
+              labels: ['code-review']
+            });
