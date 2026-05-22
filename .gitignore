@@ -1,0 +1,8 @@
+.env
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+review_output.md
+changed_files.txt

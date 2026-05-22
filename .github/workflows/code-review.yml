@@ -1,0 +1,60 @@
+name: AI Code Review
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+jobs:
+  code-review:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install anthropic python-dotenv
+
+      - name: Get changed files
+        id: changed
+        run: |
+          git diff --name-only origin/${{ github.base_ref }}...HEAD \
+            | grep -E '\.(py|js|jsx|ts|tsx|vue|go)$' \
+            | head -20 \
+            > changed_files.txt
+          echo "files=$(cat changed_files.txt | tr '\n' ' ')" >> $GITHUB_OUTPUT
+          cat changed_files.txt
+
+      - name: Run Code Review Agent
+        if: steps.changed.outputs.files != ''
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          python cli.py review ${{ steps.changed.outputs.files }} --output review_output.md
+
+      - name: Post Review as PR Comment
+        if: steps.changed.outputs.files != ''
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const review = fs.readFileSync('review_output.md', 'utf8');
+            const body = `## 🤖 AXIA Code Review Agent\n\n${review}\n\n---\n*Automatisch generiert von [axia-agents](https://github.com/${{ github.repository_owner }}/axia-agents)*`;
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: body.slice(0, 65535)
+            });
+
+      - name: No files to review
+        if: steps.changed.outputs.files == ''
+        run: echo "Keine Code-Dateien geändert, kein Review nötig."
