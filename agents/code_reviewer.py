@@ -2,7 +2,6 @@
 Code Review Agent — analysiert Dateien mit Claude und gibt strukturiertes Feedback.
 """
 import os
-import sys
 from pathlib import Path
 from typing import Optional
 import anthropic
@@ -28,9 +27,17 @@ Sei direkt und konkret. Keine leeren Phrasen. Wenn der Code gut ist, sag es kurz
 
 EXTENSIONS = {".py", ".js", ".jsx", ".ts", ".tsx", ".vue", ".go", ".java", ".cs"}
 
+_client: anthropic.Anthropic | None = None
+
+
+def _get_client() -> anthropic.Anthropic:
+    global _client
+    if _client is None:
+        _client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
+    return _client
+
 
 def _read_files(paths: list[Path]) -> list[dict]:
-    """Liest Dateien und gibt Liste mit name+content zurück."""
     files = []
     for p in paths:
         if p.is_dir():
@@ -54,7 +61,7 @@ def _read_files(paths: list[Path]) -> list[dict]:
 def review(
     paths: list[str],
     focus: Optional[str] = None,
-    model: str = "claude-opus-4-7",
+    model: str = "claude-sonnet-4-6",
 ) -> str:
     """
     Hauptfunktion: Review für die gegebenen Pfade (Dateien oder Verzeichnisse).
@@ -66,11 +73,9 @@ def review(
     if not files:
         return "Keine unterstützten Dateien gefunden."
 
-    # Dateien als Blöcke zusammenbauen
     code_blocks = []
     total_chars = 0
     for f in files:
-        # Token-Budget: ~150k Zeichen ≈ ~50k Tokens
         if total_chars + len(f["content"]) > 150_000:
             code_blocks.append(f"[{f['name']} — zu groß, übersprungen]")
             continue
@@ -81,14 +86,15 @@ def review(
     if focus:
         user_message += f"\n\n**Besonderer Fokus:** {focus}"
 
-    client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
-
-    with client.messages.stream(
+    with _get_client().messages.stream(
         model=model,
         max_tokens=4096,
-        system=SYSTEM_PROMPT,
+        # System-Prompt wird gecacht — bei Folgeaufrufen nur 10% der Token-Kosten
+        system=[{
+            "type": "text",
+            "text": SYSTEM_PROMPT,
+            "cache_control": {"type": "ephemeral"},
+        }],
         messages=[{"role": "user", "content": user_message}],
     ) as stream:
-        result = stream.get_final_text()
-
-    return result
+        return stream.get_final_text()

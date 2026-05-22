@@ -28,6 +28,15 @@ Schreibe auf Deutsch. Sei direkt und nutzerorientiert — denke wie ein frustrie
 
 FRONTEND_EXTENSIONS = {".jsx", ".tsx", ".vue", ".html", ".css", ".scss", ".svelte"}
 
+_client: anthropic.Anthropic | None = None
+
+
+def _get_client() -> anthropic.Anthropic:
+    global _client
+    if _client is None:
+        _client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
+    return _client
+
 
 def _read_frontend_files(paths: list[Path]) -> list[dict]:
     files = []
@@ -53,7 +62,7 @@ def _read_frontend_files(paths: list[Path]) -> list[dict]:
 def review_ux(
     paths: list[str],
     context: Optional[str] = None,
-    model: str = "claude-opus-4-7",
+    model: str = "claude-sonnet-4-6",
 ) -> str:
     """UX-Review für Frontend-Dateien oder Verzeichnisse."""
     file_paths = [Path(p) for p in paths]
@@ -75,14 +84,15 @@ def review_ux(
     if context:
         user_message += f"\n\n**Kontext zur App:** {context}"
 
-    client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
-
-    with client.messages.stream(
+    with _get_client().messages.stream(
         model=model,
         max_tokens=4096,
-        system=SYSTEM_PROMPT,
+        # System-Prompt wird gecacht — bei Folgeaufrufen nur 10% der Token-Kosten
+        system=[{
+            "type": "text",
+            "text": SYSTEM_PROMPT,
+            "cache_control": {"type": "ephemeral"},
+        }],
         messages=[{"role": "user", "content": user_message}],
     ) as stream:
-        result = stream.get_final_text()
-
-    return result
+        return stream.get_final_text()

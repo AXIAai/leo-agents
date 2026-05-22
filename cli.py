@@ -34,14 +34,14 @@ def main():
     r.add_argument("paths", nargs="+", help="Dateien oder Verzeichnisse")
     r.add_argument("--focus", "-f", help="Fokus-Thema, z.B. 'Sicherheit' oder 'Performance'")
     r.add_argument("--output", "-o", help="Ausgabe in Datei schreiben (optional)")
-    r.add_argument("--model", default="claude-opus-4-7")
+    r.add_argument("--model", default="claude-sonnet-4-6")
 
     # --- ux review ---
     u = sub.add_parser("ux", help="UX-Review für Frontend-Code")
     u.add_argument("paths", nargs="+", help="Dateien oder Verzeichnisse")
     u.add_argument("--context", "-c", help="Beschreibung der App für besseren Kontext")
     u.add_argument("--output", "-o", help="Ausgabe in Datei schreiben (optional)")
-    u.add_argument("--model", default="claude-opus-4-7")
+    u.add_argument("--model", default="claude-sonnet-4-6")
 
     args = parser.parse_args()
 
