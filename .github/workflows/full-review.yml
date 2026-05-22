@@ -31,7 +31,7 @@ jobs:
       - name: Checkout axia-agents
         uses: actions/checkout@v4
         with:
-          repository: AXIAai/axia-agents
+          repository: AXIAai/leo-agents
           path: .axia-agents
 
       - uses: actions/setup-python@v5
@@ -67,7 +67,7 @@ jobs:
             const review = fs.readFileSync('full_review.md', 'utf8');
             const date = new Date().toLocaleDateString('de-DE');
             const paths = '${{ inputs.paths }}' || '.';
-            const body = `## 🤖 AXIA Full Code Review — ${date}\n\n**Geprüfte Pfade:** \`${paths}\`\n\n${review}\n\n---\n*Automatisch generiert von [axia-agents](https://github.com/AXIAai/axia-agents)*`;
+            const body = `## 🤖 AXIA Full Code Review — ${date}\n\n**Geprüfte Pfade:** \`${paths}\`\n\n${review}\n\n---\n*Automatisch generiert von [leo-agents](https://github.com/AXIAai/leo-agents)*`;
             await github.rest.issues.create({
               owner: context.repo.owner,
               repo: context.repo.repo,
